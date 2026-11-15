@@ -1,4 +1,3 @@
-
 name: TaskFlow CI/CD Pipeline
 
 on:
@@ -57,3 +56,26 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/taskflow:latest
+
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Deploy TaskFlow on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo docker pull anuvindhthacholi/taskflow:latest
+            sudo docker rm -f taskflow-container || true
+            sudo docker run -d \
+              --name taskflow-container \
+              -p 80:5000 \
+              -v /home/ubuntu/taskflow-data/tasks.db:/app/tasks.db \
+              --restart unless-stopped \
+              anuvindhthacholi/taskflow:latest
